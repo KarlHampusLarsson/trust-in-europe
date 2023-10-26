@@ -1,0 +1,400 @@
+---
+title: "Trust among European Citizens: a Multivariate Analysis"
+author: "Hampus Larsson"
+date: '2023-10-18'
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+  pdf_document: default
+---
+
+# Summary
+The aim of this report is to examine trust among European citizens. Data from the largest survey on social attitudes in Europe was used for the analysis. It seems that trust can be explained by three underlying factors: interpersonal trust, national trust and international trust. Europeans also seem to be able to be grouped as low-, medium- and high-trust individuals.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, echo=FALSE, warning=FALSE, message=FALSE, results="hide"}
+library(corrplot) # correlation plots
+library(tidyverse) # data cleaning
+library(factoextra) # clustering viz
+```
+
+# Introduction
+Trust is the firm reliability, truth or ability of someone or something. We can trust each other, organisations and institutions. However we can also lack trust in these entities. The topic of trust, specifically among Europeans, is what this report is about. For this the following research questions were asked:
+
+1. Are there underlying factors explaining European citizens trust in different entities?
+
+2. Can European citizens be grouped based on trust?
+
+These questions were examined using multivariate methods. Trust can vary greatly among individuals. What we trust or distrust might not be the same for any two people or entities. The survey questions related to trust were several, leading to many variables of interest. Thus single variable methods (univariate) were considered insufficient to explore the topic of trust among Europeans. The chosen methods of analysis were factor and cluster analysis.
+
+# Description of data
+The data used for this report is from the European Social Survey (ESS). It is a cross-national biannual survey across Europe. The survey measures attitudes, beliefs and social behaviours of Europeans. The 10th edition survey from 2020 was used, titled "ESS Round 10 - 2020. Democracy, Digital Social Contacts". I selected 10 questions related to the subject of trust from the survey. They covered trust in other individuals, institutions such as the police, and in political actors such as politicians and political parties. Responses were measured on a 10-point Likert Scale where 0 indicated a negative response such as "No trust at all" and 10 indicated a positive response such as "Complete trust". For a detailed list of included variables, response options and participating countries, please see the appendix.
+
+The 10th round of ESS featured 37611 respondents. Refusal to answer, "Don't know" responses and  non-responses are numerically coded as 77, 88 and 99 respectively. Including these will affect the analysis by inflating the mean, variance and range of the data. Thus data cleaning was performed with the help of the R package "tidyverse". Responses coded as 77, 88 and 99 were treated as not available ("NA") responses and removed. This left 33170 remaining observations to analyze. While the loss of observations was unfortunate, the substantial size of the data set after cleaning left the opportunity to perform the analysis. Since all variables were measured on the same 10-point scale, standardization was not performed.
+
+```{r datacleaning, echo=FALSE, warning=FALSE, message=FALSE, results="hide"}
+ESS10 <- read.csv("~/Downloads/ESS10/ESS10.csv")
+trust_with_na <- ESS10 %>% select(ppltrst, pplfair, pplhlp, trstprl, trstlgl, trstplc, trstplt, trstprt, trstep, trstun) # select trust related variables
+
+ # remove "Don't know", "Don't wish to answer" and "No answer"
+trust <- subset(trust_with_na, trust_with_na$ppltrst!=77 & trust_with_na$ppltrst!=88 & trust_with_na$ppltrst!=99 & # trust in people
+                  trust_with_na$pplfair!=77 & trust_with_na$pplfair!=88 & trust_with_na$pplfair!=99 & # people are fair
+                  trust_with_na$pplhlp!=77 & trust_with_na$pplhlp!=88 & trust_with_na$pplhlp!=99 & # people help
+                  trust_with_na$trstprl!=77 & trust_with_na$trstprl!=88 & trust_with_na$trstprl!=99 & # trust in parliament
+                  trust_with_na$trstlgl!=77 & trust_with_na$trstlgl!=88 & trust_with_na$trstlgl!=99 & # trust in legal system
+                  trust_with_na$trstplc!=77 & trust_with_na$trstplc!=88 & trust_with_na$trstplc!=99 & # trust in police
+                  trust_with_na$trstplt!=77 & trust_with_na$trstplt!=88 & trust_with_na$trstplt!=99 & # trust in politicians
+                  trust_with_na$trstprt!=77 & trust_with_na$trstprt!=88 & trust_with_na$trstprt!=99 & # trust in political parties
+                  trust_with_na$trstep!=77 & trust_with_na$trstep!=88 & trust_with_na$trstep!=99 & # trust in european parliament
+                  trust_with_na$trstun!=77 & trust_with_na$trstun!=88 & trust_with_na$trstun!=99 # trust in united nations
+                  )
+trust <- na.omit(trust)
+summary(trust)
+```
+
+# Method of analysis
+
+## Factor analysis
+The first method of analysis selected was factor analysis. First I examined the correlations of the 10 selected variables. The correlation matrix seemed to indicate some correlation between variables but was challenging to interpret. The R package "corrplot" was used for it's corrplot() function to produce an easier to interpret correlation plot. The plot seemed to indicate two groups of highly correlated variables, one in the upper left corner and one in the lower right corner of the matrix. Thus factor analysis was performed to see if there are underlying factors explaining trust.
+
+```{r correlation, echo=FALSE}
+corr_plot <- round(cor(trust, use="complete.obs"), 2)
+print(corr_plot)
+corrplot(cor(trust, use="all.obs"), order="original", tl.col="black", tl.cex=0.75)
+```
+
+First a one-factor model was produced. The value of uniqueness for people's trust in other people ($X_{1}$), view of other people as fair ($X_{2}$) and other people as helpful ($X_{3}$) were all greater than 0.7. This indicated the one-factor model had high errors for these variables. Thus a comparison with other models was of interest.
+
+```{r, echo=FALSE}
+EFA1 <- factanal(~ ., data=trust, factors=1, rotation="varimax", scores="regression") # develop a 1-facot model
+print(EFA1) # print the model
+```
+
+The two-factor model had has lower values of uniqueness for variables 1 through 3. Said variables seemed to load higher on factor 2, while variables 4 through 10 loaded higher on factor 1. This was not surprising as the first three questions regarded interpersonal trust, while the other questions regarded trust in institutions and politial actors. The factor scores of the two-factor model are not highly correlated $cor(Factor 1, Factor 2)\approx 0.1$. Thus the factors can be assumed to be independent and an orthogonal varimax rotation was used.
+
+```{r EFA2, echo=FALSE}
+EFA2 <- factanal(~ ., data=trust, factors=2, rotation="varimax", scores="regression") # develop a 2-factor model
+EFA2 # print the model
+cor(EFA2$scores) # get the correlation matrix for the factor scores
+```
+
+A three-factor model was used for comparison with the first two models. This model had high factor loadings for trust in the European Parliament ($X_{9}$) and trust in the United Nations ($X_{10}$). The uniqueness for these variables were also the lowest among the three models. The European Parliament and United Nations were the only two international institutions related to the trust questions. Other political actors and institutions (such as politicians, political parties and the legal system) are related to the national level. This speaks in favor of basing the analysis on the three-factor model. The three factors in the model had low correlation, with no two factors having a correlation greater than 0.09. This suggested the independence of the factors and thus an orthogonal varimax rotation was used for this model as well.
+
+```{r EFA3, echo=FALSE}
+EFA3 <- factanal(~ ., data=trust, factors=3, rotation="varimax", scores="regression") # develop a 3 factor model
+EFA3 # print the model
+cor(EFA3$scores) # get the correlation matrix for the factor scores
+```
+
+## Cluster analysis
+Next cluster analysis was used to analyze the data. The large size of the data set influenced the decision to use k-means clustering. First an appropriate amount of clusters had to be determined. Within cluster sum of squares (WCSS) is a measure of variance within clusters. A smaller WCSS indicates tighter clusters, allowing for more accurate analysis. The "elbow method" plots WCSS against amount of centroids (k) to determine what amount of centroids to use. Graphically this can be determined by the graphs "elbow", the point were adding another cluster means no significant decrease of the WCSS value. The plot showed the "elbow" seemed to be around two or three clusters; two models were developed for further comparison. 
+
+```{r elbow method, echo=FALSE, warning=FALSE}
+set.seed(129) # set a seed for the randomly selected centroids
+
+wcss <- vector("numeric", length=10) # a vector to store within cluster sum of squares
+
+for(k in 1:10) { # set up a loop
+  kmeans_model <- kmeans(trust, center=k) # 
+  wcss[k] <- kmeans_model$tot.withinss
+}
+
+plot(1:10, wcss, type="b", xlab="Number of clusters (k)", ylab="WCSS", main="Elbow Method") # plot the elbow
+```
+
+The choice of model for analysis depended on WCSS size and interpretability. The three-cluster model produced WCSS values of 515581.7, 299568.2 and 338341.2 for its three clusters. The two-cluster model had WCSS values of 647430 and 702172.7. Thus the first model was chosen for analysis. 
+
+```{r cluster analysis, echo=FALSE, message=FALSE}
+k_means_3 <- kmeans(trust, 3, nstart=50) # k=3 clusters randomly computed 50 times
+trust_cluster_3 <- cbind(trust, cluster=k_means_3$cluster) # combine data with the 3 clusters
+print("WCSS, three-cluster model")
+print(k_means_3$withinss) # print the WCSS, 3 clusters
+
+k_means_2 <- kmeans(trust, 2, nstart=50) # k=2 clusters randomly computed 50 times
+trust_cluster_2 <- cbind(trust, cluster=k_means_2$cluster) # combine data with the 2 clusters
+print("WCSS, two-cluster model")
+print(k_means_2$withinss) # print the WCSS, 2 clusters
+```
+
+The mean values (centroids) of the clusters were reported in table format below. Visualization of the clusters were challenging considering the large amount of variables; ten survey questions. Principal component analysis was used to reduce the amount of dimensions to two in order to visualize the clusters on a 2D plane. These principal components (PC's) captured a significant portion of the variance of the variables; 53.5% of it for PC 1 and 14.9% of it for PC 2. Please note that the principal components were solely used for visualization, not as basis for the analysis.
+
+```{r k3means model, echo=FALSE, message=FALSE, warning=FALSE}
+print("Centroids for the k=3 means model") 
+print(k_means_3$centers) # print the centroids
+
+fviz_cluster(k_means_3, data=trust) # PCA to 2 dimensions to visualize the data
+```
+
+# Interpretation of results
+The underlying factors seem to be trust at three different levels: interpersonal, national and international. The first factor explains trusting various institutions and political actors such as the police, legal system and political parties. The second factor explains respondents trust in other people, and if they view others as fair and helpful. Trust in the European Parliament and United Nations, both international institutions, is mainly explained by the third factor. The measurement error, the uniqueness, is highest for trust in the legal system and trust in the police. The three factor model explains 67% of the total variance. 
+
+The three-centroid cluster model grouped observations according to average trust. The groups seem to be medium-trust (group 1), high-trust (group 2) and low-trust individuals (group 3). Medium-trust individuals have centroid values ranging between 3.3 to 5.3. High-trust individuals have average values between 6 and 8.1 for different variables. Low-trust individuals have centroid values ranging between 0.9 and 4. The variance explained by the three-centroid  model is 45.9%. This means about half of the variance among the variables remains unexplained.
+
+# Analysis and conclusion
+The factors of the three-factor model aligns with distinctions between other people, national actors and international actors. The model points to these underlying factors partially being able to explain European citizens trust in other individuals, institutions and political actors. The higher error for trust in the police and legal system is of interest, as these are government institutions rather than political entities. This indicates the model is more adept at explaining trust in political actors rather than trust in institutions. Two of the questions related to other individuals are not directly related to trust, but rather if respondents see other people as fair and helpful. They load on the same factor as the interpersonal trust variable ($X_{1}$), indicating high interpersonal trust respondents also view others as helpful and fair. 
+
+The 33% of variance that remains unexplained is noteworthy. Given the large amount of participants in the survey across Europe there are likely national differences accounting for the unexplained variance. For example, a corrupt country's citizens might have lower trust in politicians than average. Trust in politicians, political parties and parliaments (both national and the EU parliament) can likely shift substantially over time as elections change representation in parliaments. Interpersonal trust probably does not change as rapidly over time. 
+
+While the three-factor model seems to indicate patterns of trust among respondents, it should be kept in mind that trust is a highly complex subject. Differences between respondents are likely to happen as individuals have different definitions of low and high trust. One person's "No trust" can be different from another's. The fact that the respondents were given the measurement scale in the survey with numeric response options informed the decision to analyze the data using factor analysis. It can however be questioned if trust can be numerically measured, or if there is a meaningful zero. The trust that Europeans have for each other, institutions and political actors can likely range outside of the 10-point scale used. 
+
+The groups of the three-cluster model does not only have differing levels of trust (low, medium and high) but also differing patterns of what they trust. Medium-trust respondents have lowest trust for politicians and political parties. This indicates they have a higher trust in other people, the police and the legal system. While this might indicate a low trust for political entities, they do have higher average trust for parliaments (both national and the European Parliament) which opposes that notion. Perhaps these respondents have different levels of trust in elected officials and the parliaments those officials operate in. 
+
+Low-trust individuals have highest centroid values for variables relating to trusting other people and viewing them as fair and helpful. The exception to this is the police, which is the only institution they trust as much as other people. These respondents can potentially be individuals with political leanings towards ideologies that value individual autonomy and are sceptical of government power. It is likely that such individuals have higher interpersonal trust than national or international trust. 
+
+The final group is high trust individuals. These individuals have higher average trust for the United Nations, their national parliament, the legal system and the police than average interpersonal trust. Individuals in this cluster might lean towards ideologies which value the public sector and puts less emphasis on individual autonomy. However, these respondents still trust other people more than the other groups on average. Thus they should not be interpreted as not trusting of other individuals. 
+
+While the three-cluster model seems to be able to group respondents in these three groups, it should be noted a large part of the variance remains unexplained. National differences surely play a significant role here. Previously discussed ideological differences are likely more or less pronounced in different countries depending on different political landscapes. The same difficulties regarding measurement of trust discussed about the three-factor model is present for the three-cluster model. 
+
+Accounting for fitness measures the three-factor model seems to more accurately represent the data than the three-cluster model. Since there often is a balance between goodness of fit and interpretability present with multivariate methods, no further models were developed for comparison. Developing further models for comparison would be a good first step for future analysis. A more granular approach to clustering might have been able to identify more specific groups, such as individuals with low trust for the politicians but high trust for the police. Such cluster analysis is beyond the scope of this report but would also be good to include in a future analysis. 
+
+# Appendix
+
+## Included questions:
+All responses were measured on a 10-point scale.
+
+$X_{1}$ = ppltrst - Most people can be trust or you can't be too careful
+
+Question: A4 Using this card, generally speaking, would you say that most people can be trusted, or that you can't be too careful in dealing with people? Please tell me on a score of 0 to 10, where 0 means you can't be too careful and 10 means that most people can be trusted.
+
+Response options: 
+You can't be too careful
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Most people can be trusted
+- Refusal
+- Don't know
+- No answer
+
+$X_{2}$ = pplfair - Most people try to take advantage of you, or try to be fair
+
+Question: A5 Using this card, do you think that most people would try to take advantage of you if they got the chance, or would they try to be fair?
+
+Response options:
+Most people try to take advantage of me
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Most people try to be fair
+- Refusal
+- Don't know
+- No answer
+
+$X_{3}$ = pplhelp - Most people helpful or mostly looking out for themselves
+
+Question: A6 Would you say that most of the time people try to be helpful or that they are mostly looking out for themselves?
+
+Response options: 
+People mostly look out for themselves
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- People mostly try to be helpful
+- Refusal
+- Don't know
+- No answer
+
+$X_{4}$ = trstprl - Trust in country's parliament
+
+Question: B6-12a Using this card, please tell me on a score of 0-10 how much you personally trust each of the institutions I read out. 0 means you do not trust an institution at all, and 10 means you have complete trust. Firstly... ...[country]'s parliament?
+
+Response options:
+No trust at all
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Complete trust
+- Refusal
+- Don't know
+- No answer
+
+$X_{5}$ = trstlgl - Trust in the legal system
+
+Question: B6-12a Using this card, please tell me on a score of 0-10 how much you personally trust each of the institutions I read out. 0 means you do not trust an institution at all, and 10 means you have complete trust. Firstly... ...the legal system?
+
+Response options:
+No trust at all
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Complete trust
+- Refusal
+- Don't know
+- No answer
+
+$X_{6}$ = trstplc - Trust in the police
+
+Question: B6-12a Using this card, please tell me on a score of 0-10 how much you personally trust each of the institutions I read out. 0 means you do not trust an institution at all, and 10 means you have complete trust. Firstly... ...the police?
+
+Response options:
+No trust at all
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Complete trust
+- Refusal
+- Don't know
+- No answer
+
+$X_{7}$ = trstplt - Trust in politicians
+
+Question: B6-12a Using this card, please tell me on a score of 0-10 how much you personally trust each of the institutions I read out. 0 means you do not trust an institution at all, and 10 means you have complete trust. Firstly... ...politicians?
+
+Response options:
+No trust at all
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Complete trust
+- Refusal
+- Don't know
+- No answer
+
+$X_{8}$ = trstprt - Trust in political parties
+
+Question: B6-12a Using this card, please tell me on a score of 0-10 how much you personally trust each of the institutions I read out. 0 means you do not trust an institution at all, and 10 means you have complete trust. Firstly... ...political parties?
+
+Response options:
+No trust at all
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Complete trust
+- Refusal
+- Don't know
+- No answer
+
+$X_{9}$ = trstep - Trust in the European Parliament
+
+Question: B6-12a Using this card, please tell me on a score of 0-10 how much you personally trust each of the institutions I read out. 0 means you do not trust an institution at all, and 10 means you have complete trust. Firstly... ...the European Parliament?
+
+Response options:
+No trust at all
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Complete trust
+- Refusal
+- Don't know
+- No answer
+
+$X_{10}$ = trstun - Trust in the United Nations
+
+Question: B6-12a Using this card, please tell me on a score of 0-10 how much you personally trust each of the institutions I read out. 0 means you do not trust an institution at all, and 10 means you have complete trust. Firstly... ...the United Nations?
+
+Response options:
+No trust at all
+- 1 
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- Complete trust
+- Refusal
+- Don't know
+- No answer
+
+## Included countries:
+Albania
+- Austria
+- Belgium
+- Bulgaria
+- Croatia
+- Cyprus
+- Czechia
+- Denmark
+- Estonia
+- Finland
+- France
+- Germany
+- Georgia
+- Greece
+- Hungary
+- Iceland
+- Spain
+- Ireland
+- Israel
+- Italy
+- Kosovo
+- Latvia
+- Lithuania
+- Luxembourg
+- Montenegro
+- Netherlands
+- North Macedonia
+- Norway
+- Poland
+- Portugal
+- Romania
+- Russia
+- Serbia
+- Slovakia
+- Slovenia
+- Switzerland
+- Sweden
+- Turkey
+- Ukraine
+- United Kingdom
