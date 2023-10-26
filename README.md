@@ -11,4 +11,4 @@
 ## Results
 
 ## Credits
-Image by [Christian Lue on Unsplash] (https://unsplash.com/photos/blue-and-yellow-star-flag-8Yw6tsB8tnc?utm_content=creditShareLink&utm_medium=referral&utm_source=unsplash).
+Image by [Christian Lue on Unsplash](https://unsplash.com/photos/blue-and-yellow-star-flag-8Yw6tsB8tnc?utm_content=creditShareLink&utm_medium=referral&utm_source=unsplash).
